@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานเจ้าหนี้ Interactive Dashboard (Online Version)</title>
+    <title>ระบบรายงานเจ้าหนี้ Interactive Dashboard (Gemini AI Edition)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -20,9 +20,9 @@
         .dark .border-gray-100 { border-color: #334155; }
         .dark input, .dark select { background-color: #1e293b; border-color: #334155; color: #f1f5f9; }
         
-        /* Multi-select styling */
-        .multi-select-container { position: relative; width: 100%; }
-        .multi-select-box { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .table-bordered th, .table-bordered td { border: 1px solid #e2e8f0; }
+        .dark .table-bordered th, .dark .table-bordered td { border: 1px solid #334155; }
+
         .multi-select-dropdown { 
             position: absolute; top: 105%; left: 0; width: 100%; z-index: 50; 
             max-height: 250px; overflow-y: auto; background: white; 
@@ -31,9 +31,6 @@
         }
         .multi-select-dropdown.show { display: block; }
         .dark .multi-select-dropdown { background: #1e293b; border-color: #334155; }
-        
-        @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .loading-active { animation: pulse-soft 2s infinite; pointer-events: none; }
     </style>
 </head>
 <body class="p-4 md:p-8 bg-gray-50">
@@ -42,31 +39,41 @@
         <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-colors">
             <div class="flex flex-col">
-                <h1 class="text-2xl font-bold text-gray-800 leading-tight">รายงานเจ้าหนี้ (ระบบออนไลน์)</h1>
-                <p class="text-indigo-600 font-semibold text-sm italic">เชื่อมต่อกับ Google Sheets ล่าสุดแล้ว</p>
+                <h1 class="text-2xl font-bold text-gray-800 leading-tight">รายงานเจ้าหนี้อัจฉริยะ ✨</h1>
+                <p class="text-indigo-600 font-semibold text-sm italic">ขับเคลื่อนด้วย Gemini AI</p>
             </div>
             
             <div class="mt-4 md:mt-0 flex flex-wrap justify-center items-center gap-3">
-                <button id="syncCloudBtn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl transition shadow-md active:scale-95">
+                <button id="aiAnalyzeBtn" class="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl transition shadow-md active:scale-95">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    <span>✨ วิเคราะห์ด้วย AI</span>
+                </button>
+                <button id="syncCloudBtn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl transition shadow-md">
                     <i data-lucide="refresh-cw" class="w-5 h-5" id="syncIcon"></i>
-                    <span>อัปเดตจาก Google Sheets</span>
+                    <span>อัปเดตข้อมูล</span>
                 </button>
-
-                <input type="file" id="uploadFile" accept=".csv, .xlsx, .xls" class="hidden">
-                <button onclick="document.getElementById('uploadFile').click()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition shadow-md active:scale-95">
-                    <i data-lucide="file-up" class="w-5 h-5"></i>
-                    <span>อัปโหลด Excel เอง</span>
-                </button>
-                
-                <button id="darkModeToggle" class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all">
+                <button id="darkModeToggle" class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800">
                     <i data-lucide="moon" id="moonIcon" class="w-5 h-5"></i>
                     <i data-lucide="sun" id="sunIcon" class="w-5 h-5 hidden"></i>
                 </button>
             </div>
         </div>
 
-        <!-- Notification Bar -->
-        <div id="statusMsg" class="hidden p-4 rounded-xl text-sm font-medium border animate-in fade-in slide-in-from-top-2 duration-300"></div>
+        <!-- AI Insight Panel -->
+        <div id="aiInsightPanel" class="hidden bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/30 p-6 rounded-2xl shadow-inner animate-in fade-in slide-in-from-top-4 duration-500">
+            <div class="flex justify-between items-start mb-3">
+                <h3 class="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
+                    <i data-lucide="brain-circuit" class="w-5 h-5"></i>
+                    AI Insights - บทวิเคราะห์สรุป
+                </h3>
+                <button onclick="document.getElementById('aiInsightPanel').classList.add('hidden')" class="text-indigo-400 hover:text-indigo-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="aiInsightContent" class="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed whitespace-pre-wrap">
+                กำลังรวบรวมข้อมูลเพื่อวิเคราะห์...
+            </div>
+        </div>
 
         <!-- Stats -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -86,14 +93,13 @@
 
         <!-- Filters -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <input type="text" id="filterCreditor" placeholder="ชื่อเจ้าหนี้..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm w-full">
-            <input type="text" id="filterInvoice" placeholder="เลขบิล..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm w-full">
+            <input type="text" id="filterCreditor" placeholder="ชื่อเจ้าหนี้..." class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm w-full">
+            <input type="text" id="filterInvoice" placeholder="เลขบิล..." class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm w-full">
             
-            <!-- Multi-select for Expense Type -->
-            <div class="multi-select-container">
-                <div id="expenseBox" class="multi-select-box px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-500 bg-white dark:bg-slate-800 dark:border-slate-700">
+            <div class="relative">
+                <div id="expenseBox" class="cursor-pointer px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-500 bg-white flex justify-between items-center dark:bg-slate-800 dark:border-slate-700">
                     <span id="expenseLabel" class="truncate">ทุกประเภทค่าใช้จ่าย</span>
-                    <i data-lucide="chevron-down" class="w-4 h-4 ml-2 flex-shrink-0"></i>
+                    <i data-lucide="chevron-down" class="w-4 h-4 ml-2"></i>
                 </div>
                 <div id="expenseDropdown" class="multi-select-dropdown p-2 space-y-1">
                     <label class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
@@ -101,9 +107,7 @@
                         <span class="text-sm dark:text-gray-200">ทั้งหมด</span>
                     </label>
                     <hr class="border-gray-100 dark:border-slate-700 my-1">
-                    <div id="expenseOptionsList" class="space-y-1">
-                        <!-- Options injected here -->
-                    </div>
+                    <div id="expenseOptionsList" class="space-y-1"></div>
                 </div>
             </div>
 
@@ -141,12 +145,42 @@
             </div>
         </div>
 
-        <!-- Table -->
+        <!-- Expense Summary Table -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+            <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="list-checks" class="w-5 h-5 text-indigo-500"></i>
+                <h3 class="font-bold text-gray-700 dark:text-gray-200">สรุปตามประเภทค่าใช้จ่าย</h3>
+            </div>
+            <div class="p-4 overflow-x-auto">
+                <table class="w-full text-left text-sm table-bordered border-collapse">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-slate-800 text-gray-500 font-semibold border-b">
+                        <tr class="text-gray-600 font-bold bg-gray-100 dark:bg-slate-700">
+                            <th class="p-3 text-center w-16">ลำดับ</th>
+                            <th class="p-3">ประเภทค่าใช้จ่าย</th>
+                            <th class="p-3 text-center">จำนวนรายการ</th>
+                            <th class="p-3 text-right">จำนวนเงิน</th>
+                            <th class="p-3 text-right">จ่ายแล้ว</th>
+                            <th class="p-3 text-right">ปรับปรุง</th>
+                            <th class="p-3 text-right">คงเหลือ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
+                        <tr><td colspan="7" class="p-6 text-center text-gray-400">ไม่มีข้อมูลสรุป</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Details Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="database" class="w-5 h-5 text-indigo-500"></i>
+                <h3 class="font-bold text-gray-700 dark:text-gray-200">รายละเอียดรายการ</h3>
+            </div>
+            <div class="p-4 overflow-x-auto">
+                <table class="w-full text-left text-sm table-bordered border-collapse">
+                    <thead>
+                        <tr class="text-gray-600 font-bold bg-gray-100 dark:bg-slate-700">
                             <th class="p-4">วันที่รับของ</th>
                             <th class="p-4">เลขบิล</th>
                             <th class="p-4">ชื่อเจ้าหนี้</th>
@@ -156,161 +190,230 @@
                             <th class="p-4 text-center">สถานะ</th>
                         </tr>
                     </thead>
-                    <tbody id="dataTableBody" class="divide-y divide-gray-50 dark:divide-slate-700">
-                        <tr><td colspan="7" class="p-10 text-center text-gray-400">กรุณากดปุ่มอัปเดตข้อมูลจาก Google Sheets</td></tr>
+                    <tbody id="dataTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
+                        <tr><td colspan="7" class="p-10 text-center text-gray-400 font-medium italic">กรุณากดปุ่มอัปเดตข้อมูล</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- AI Chat Toggle -->
+    <button id="toggleChatBtn" class="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl z-40 transition-transform active:scale-95">
+        <i data-lucide="message-square-text" class="w-6 h-6"></i>
+    </button>
+
+    <!-- AI Chat Sidebar -->
+    <div id="aiChatSidebar" class="fixed top-0 right-0 h-full w-full md:w-96 bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 border-l border-gray-200 dark:border-slate-700 flex flex-col">
+        <div class="p-4 bg-indigo-600 text-white flex justify-between items-center">
+            <h3 class="font-bold flex items-center gap-2">
+                <i data-lucide="bot" class="w-5 h-5"></i>
+                ✨ ถามตอบข้อมูลเจ้าหนี้
+            </h3>
+            <button id="closeChatBtn" class="p-1 hover:bg-indigo-500 rounded">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4">
+            <div class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 max-w-[85%]">
+                สวัสดีครับ! ผมเป็นผู้ช่วย AI ประจำระบบบัญชี คุณสามารถสอบถามข้อมูลจากตารางเจ้าหนี้ได้เลยครับ
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-200 dark:border-slate-700">
+            <div class="flex gap-2">
+                <input type="text" id="chatInput" placeholder="พิมพ์คำถามที่นี่..." class="flex-1 px-4 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none text-sm">
+                <button id="sendChatBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl">
+                    <i data-lucide="send" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusMsg" class="hidden fixed top-6 left-1/2 -translate-x-1/2 p-4 rounded-xl shadow-lg z-[60] animate-bounce"></div>
+
     <script>
-        lucide.createIcons();
+        const apiKey = ""; // API Key handled by environment
+        const modelName = "gemini-2.5-flash-preview-09-2025";
+        
         let rawData = [];
         let selectedExpenseTypes = new Set();
         let creditorChart, deptChart;
+        let filteredDataGlobal = [];
 
+        lucide.createIcons();
+
+        // --- AI API Functions ---
+        async function callGemini(prompt, systemPrompt = "คุณคือผู้ช่วยวิเคราะห์ข้อมูลบัญชีเจ้าหนี้มืออาชีพ") {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            let retries = 0;
+            const maxRetries = 5;
+            
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] }
+                        })
+                    });
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "ไม่สามารถสรุปข้อมูลได้ในขณะนี้";
+                } catch (error) {
+                    retries++;
+                    const delay = Math.pow(2, retries) * 500;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            return "เกิดข้อผิดพลาดในการเชื่อมต่อ AI หลังจากพยายามหลายครั้ง";
+        }
+
+        // --- Event Listeners & UI Logic ---
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
 
-        // Toggle Dropdown
-        document.getElementById('expenseBox').addEventListener('click', (e) => {
-            document.getElementById('expenseDropdown').classList.toggle('show');
-            e.stopPropagation();
+        document.getElementById('aiAnalyzeBtn').addEventListener('click', async () => {
+            if (!filteredDataGlobal.length) {
+                showStatus("กรุณาอัปเดตข้อมูลก่อนวิเคราะห์", "error");
+                return;
+            }
+            const panel = document.getElementById('aiInsightPanel');
+            const content = document.getElementById('aiInsightContent');
+            panel.classList.remove('hidden');
+            content.innerText = "✨ กำลังส่งข้อมูลให้ Gemini AI ประมวลผลภาพรวม...";
+
+            const summaryText = filteredDataGlobal.slice(0, 50).map(d => 
+                `เจ้าหนี้: ${d.creditor}, ยอดเงิน: ${d.amount}, คงเหลือ: ${d.balance}, ประเภท: ${d.expenseType}`
+            ).join("\n");
+
+            const prompt = `จากข้อมูลเจ้าหนี้ต่อไปนี้ ช่วยวิเคราะห์ 3 ประเด็นสำคัญ: 
+            1. สรุปภาพรวมหนี้ 2. จุดที่ควรระวัง 3. คำแนะนำการบริหารจัดการ
+            ข้อมูล:\n${summaryText}`;
+
+            const analysis = await callGemini(prompt);
+            content.innerText = analysis;
+            lucide.createIcons();
         });
 
-        document.addEventListener('click', () => {
-            document.getElementById('expenseDropdown').classList.remove('show');
+        // Chat Logic
+        const toggleChat = () => {
+            const sidebar = document.getElementById('aiChatSidebar');
+            const isHidden = sidebar.classList.contains('translate-x-full');
+            sidebar.classList.toggle('translate-x-full');
+        };
+
+        document.getElementById('toggleChatBtn').addEventListener('click', toggleChat);
+        document.getElementById('closeChatBtn').addEventListener('click', toggleChat);
+
+        document.getElementById('sendChatBtn').addEventListener('click', async () => {
+            const input = document.getElementById('chatInput');
+            const container = document.getElementById('chatMessages');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Add User Message
+            container.innerHTML += `<div class="bg-indigo-100 dark:bg-indigo-900/40 p-3 rounded-2xl text-sm self-end ml-auto max-w-[85%]">${text}</div>`;
+            input.value = "";
+            container.scrollTop = container.scrollHeight;
+
+            // AI Loading
+            const loadingId = "ai-loading-" + Date.now();
+            container.innerHTML += `<div id="${loadingId}" class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm italic animate-pulse">✨ กำลังหาคำตอบ...</div>`;
+
+            const dataContext = filteredDataGlobal.slice(0, 100).map(d => JSON.stringify(d)).join("|");
+            const prompt = `ผู้ใช้งานถามว่า: "${text}" 
+            อ้างอิงข้อมูลในตาราง (JSON): ${dataContext}
+            ให้ตอบเฉพาะข้อมูลที่ระบุในตารางอย่างแม่นยำและเป็นมิตร`;
+
+            const aiResponse = await callGemini(prompt, "คุณคือ AI Chatbot ที่เข้าถึงข้อมูลเจ้าหนี้แบบ Real-time ตอบเป็นภาษาไทย");
+            document.getElementById(loadingId).remove();
+            container.innerHTML += `<div class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 max-w-[85%]">${aiResponse}</div>`;
+            container.scrollTop = container.scrollHeight;
         });
 
-        document.getElementById('expenseDropdown').addEventListener('click', (e) => e.stopPropagation());
-
+        // --- Core Dashboard Functions (From Original) ---
         async function fetchFromCloud() {
             const btn = document.getElementById('syncCloudBtn');
             const icon = document.getElementById('syncIcon');
-            btn.disabled = true;
-            icon.classList.add('animate-spin');
-            document.body.classList.add('loading-active');
-
+            btn.disabled = true; icon.classList.add('animate-spin');
             try {
                 const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
-                if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อ Google Sheets ได้");
+                if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อได้");
                 const csvText = await response.text();
-                if (csvText.includes('<!DOCTYPE html>')) throw new Error("ตั้งค่าผิดพลาด: ต้องเลือก 'Publish to web' เป็น 'CSV'");
-
                 const rows = csvText.split(/\r?\n/).map(line => {
-                    const res = [];
-                    let c = "", q = false;
+                    const res = []; let c = "", q = false;
                     for (let char of line) {
                         if (char === '"') q = !q;
                         else if (char === ',' && !q) { res.push(c); c = ""; }
                         else c += char;
                     }
-                    res.push(c);
-                    return res;
+                    res.push(c); return res;
                 });
-
                 const processed = processDataArray(rows);
                 rawData = processed.result;
                 updateDropdowns(processed.depts, processed.expenseTypes);
                 applyFilters();
-                showStatus("อัปเดตข้อมูลจากคลาวด์สำเร็จ!", "success");
+                showStatus("อัปเดตข้อมูลสำเร็จ!", "success");
             } catch (err) {
-                console.error(err);
-                showStatus(`ข้อผิดพลาด: ${err.message}`, "error");
+                showStatus(err.message, "error");
             } finally {
-                btn.disabled = false;
-                icon.classList.remove('animate-spin');
-                document.body.classList.remove('loading-active');
+                btn.disabled = false; icon.classList.remove('animate-spin');
             }
         }
 
         function processDataArray(data) {
-            const result = [];
-            const depts = new Set();
-            const expenseTypes = new Set();
+            const result = []; const depts = new Set(); const expenseTypes = new Set();
+            const parseNum = (v) => v ? parseFloat(String(v).replace(/[^\d.-]/g, '')) || 0 : 0;
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
                 if (!row || row.length < 13 || (!row[2] && !row[3])) continue;
-                
-                const parseNum = (v) => {
-                    if (!v) return 0;
-                    return parseFloat(String(v).replace(/[^\d.-]/g, '')) || 0;
-                };
-
                 const item = {
-                    date: row[1]?.replace(/"/g, '').trim() || '-',
-                    creditor: row[2]?.replace(/"/g, '').trim() || '-',
-                    invoice: row[3]?.replace(/"/g, '').trim() || '-',
+                    date: row[1]?.trim() || '-',
+                    creditor: row[2]?.trim() || '-',
+                    invoice: row[3]?.trim() || '-',
                     amount: parseNum(row[4]),
                     paid: parseNum(row[5]),
+                    adjustment: parseNum(row[6]),
                     balance: parseNum(row[7]),
-                    paymentDate: row[8]?.replace(/"/g, '').trim() || '-',
-                    expenseType: row[12]?.replace(/"/g, '').trim() || 'ไม่ระบุ',
-                    department: row[13]?.replace(/"/g, '').trim() || 'ไม่ระบุ'
+                    paymentDate: row[8]?.trim() || '-',
+                    expenseType: row[12]?.trim() || 'ไม่ระบุ',
+                    department: row[13]?.trim() || 'ไม่ระบุ'
                 };
                 result.push(item);
-                if (item.department && item.department !== 'ไม่ระบุ') depts.add(item.department);
-                if (item.expenseType && item.expenseType !== 'ไม่ระบุ') expenseTypes.add(item.expenseType);
+                if (item.department !== 'ไม่ระบุ') depts.add(item.department);
+                if (item.expenseType !== 'ไม่ระบุ') expenseTypes.add(item.expenseType);
             }
             return { result, depts, expenseTypes };
         }
 
         function updateDropdowns(depts, expenseTypes) {
-            // Update Dept Dropdown
-            const deptSel = document.getElementById('filterDept');
-            deptSel.innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + 
+            document.getElementById('filterDept').innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + 
                 Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
             
-            // Update Multi-select Expense Types
-            const expenseList = document.getElementById('expenseOptionsList');
             const sortedTypes = Array.from(expenseTypes).sort();
-            
-            expenseList.innerHTML = sortedTypes.map(type => `
+            document.getElementById('expenseOptionsList').innerHTML = sortedTypes.map(type => `
                 <label class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
                     <input type="checkbox" value="${type}" checked class="expense-item-checkbox w-4 h-4 rounded text-indigo-600">
                     <span class="text-sm dark:text-gray-200">${type}</span>
                 </label>
             `).join('');
 
-            // Reset selection to all
             selectedExpenseTypes = new Set(sortedTypes);
             document.getElementById('selectAllExpense').checked = true;
             updateExpenseLabel();
 
-            // Event Listeners for Checkboxes
             document.querySelectorAll('.expense-item-checkbox').forEach(cb => {
                 cb.addEventListener('change', () => {
                     if (cb.checked) selectedExpenseTypes.add(cb.value);
-                    else {
-                        selectedExpenseTypes.delete(cb.value);
-                        document.getElementById('selectAllExpense').checked = false;
-                    }
-                    if (selectedExpenseTypes.size === sortedTypes.length) document.getElementById('selectAllExpense').checked = true;
-                    updateExpenseLabel();
-                    applyFilters();
+                    else { selectedExpenseTypes.delete(cb.value); document.getElementById('selectAllExpense').checked = false; }
+                    updateExpenseLabel(); applyFilters();
                 });
-            });
-
-            document.getElementById('selectAllExpense').addEventListener('change', (e) => {
-                const isChecked = e.target.checked;
-                document.querySelectorAll('.expense-item-checkbox').forEach(cb => {
-                    cb.checked = isChecked;
-                    if (isChecked) selectedExpenseTypes.add(cb.value);
-                    else selectedExpenseTypes.delete(cb.value);
-                });
-                updateExpenseLabel();
-                applyFilters();
             });
         }
 
         function updateExpenseLabel() {
-            const label = document.getElementById('expenseLabel');
             const count = selectedExpenseTypes.size;
-            const total = document.querySelectorAll('.expense-item-checkbox').length;
-            
-            if (count === 0) label.innerText = "ไม่ได้เลือกประเภท";
-            else if (count === total) label.innerText = "ทุกประเภทค่าใช้จ่าย";
-            else label.innerText = `เลือกแล้ว ${count} ประเภท`;
+            document.getElementById('expenseLabel').innerText = count === 0 ? "ไม่ได้เลือก" : `เลือก ${count} ประเภท`;
         }
 
         function applyFilters() {
@@ -319,19 +422,55 @@
             const dk = document.getElementById('filterDept').value;
             const sk = document.getElementById('filterStatus').value;
 
-            const filtered = rawData.filter(d => {
+            filteredDataGlobal = rawData.filter(d => {
                 const mC = d.creditor.toLowerCase().includes(ck);
                 const mI = d.invoice.toLowerCase().includes(ik);
                 const mE = selectedExpenseTypes.has(d.expenseType);
                 const mD = dk === 'All' || d.department === dk;
-                let mS = true;
-                if (sk === 'Paid') mS = d.balance <= 0;
-                else if (sk === 'Unpaid') mS = d.paid === 0;
-                else if (sk === 'Partial') mS = d.paid > 0 && d.balance > 0;
+                let mS = sk === 'All' || (sk === 'Paid' ? d.balance <= 0 : (sk === 'Unpaid' ? d.paid === 0 : (d.paid > 0 && d.balance > 0)));
                 return mC && mI && mE && mD && mS;
             });
 
-            updateUI(filtered);
+            updateUI(filteredDataGlobal);
+            updateSummaryTable(filteredDataGlobal);
+        }
+
+        function updateSummaryTable(data) {
+            const summaryMap = {};
+            data.forEach(item => {
+                if (!summaryMap[item.expenseType]) summaryMap[item.expenseType] = { count: 0, total: 0, paid: 0, adj: 0, bal: 0 };
+                summaryMap[item.expenseType].count++;
+                summaryMap[item.expenseType].total += item.amount;
+                summaryMap[item.expenseType].paid += item.paid;
+                summaryMap[item.expenseType].adj += item.adjustment;
+                summaryMap[item.expenseType].bal += item.balance;
+            });
+
+            const sorted = Object.entries(summaryMap).sort((a, b) => a[0].localeCompare(b[0], 'th'));
+            const total = sorted.reduce((acc, [_, v]) => {
+                acc.count += v.count; acc.total += v.total; acc.paid += v.paid; acc.adj += v.adj; acc.bal += v.bal; return acc;
+            }, { count: 0, total: 0, paid: 0, adj: 0, bal: 0 });
+
+            document.getElementById('summaryTableBody').innerHTML = sorted.map(([type, v], i) => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800">
+                    <td class="p-3 text-center text-gray-500">${i + 1}</td>
+                    <td class="p-3 font-medium">${type}</td>
+                    <td class="p-3 text-center text-indigo-600 font-bold">${v.count}</td>
+                    <td class="p-3 text-right">${v.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right text-green-600">${v.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right text-orange-500">${v.adj.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right font-bold text-red-600">${v.bal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('') + (sorted.length ? `
+                <tr class="bg-gray-100 dark:bg-slate-800 font-bold border-t-2 border-gray-300">
+                    <td colspan="2" class="p-3 text-right">รวมทั้งสิ้น:</td>
+                    <td class="p-3 text-center">${total.count}</td>
+                    <td class="p-3 text-right">${total.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right">${total.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right">${total.adj.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right">${total.bal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            ` : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>');
         }
 
         function updateUI(data) {
@@ -349,29 +488,27 @@
             const topC = Object.entries(cMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
             if (creditorChart) creditorChart.destroy();
             creditorChart = new Chart(document.getElementById('creditorChart'), {
-                type: 'bar',
-                data: { labels: topC.map(c => c[0]), datasets: [{ label: 'ยอดหนี้', data: topC.map(c => c[1]), backgroundColor: '#6366f1', borderRadius: 6 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                type: 'bar', data: { labels: topC.map(c => c[0]), datasets: [{ label: 'ยอดหนี้', data: topC.map(c => c[1]), backgroundColor: '#6366f1', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } }
             });
 
             const dMap = {}; data.forEach(d => dMap[d.department] = (dMap[d.department] || 0) + d.amount);
             if (deptChart) deptChart.destroy();
             deptChart = new Chart(document.getElementById('deptChart'), {
-                type: 'doughnut',
-                data: { labels: Object.keys(dMap), datasets: [{ data: Object.values(dMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } } } }
+                type: 'doughnut', data: { labels: Object.keys(dMap), datasets: [{ data: Object.values(dMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10 } } } }
             });
 
             document.getElementById('dataTableBody').innerHTML = data.length ? data.map(r => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                     <td class="p-4 text-gray-500">${r.date}</td>
                     <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
-                    <td class="p-4 font-semibold text-gray-800 dark:text-gray-100">${r.creditor}</td>
-                    <td class="p-4 text-right font-medium">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-4 text-right font-bold ${r.balance > 0 ? 'text-red-500' : 'text-green-500'}">${r.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-4 text-center text-gray-600 dark:text-gray-400 font-medium">${r.paymentDate || '-'}</td>
+                    <td class="p-4 font-semibold">${r.creditor}</td>
+                    <td class="p-4 text-right">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-right font-bold ${r.balance > 0 ? 'text-red-500' : 'text-green-600'}">${r.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-center font-medium">${r.paymentDate || '-'}</td>
                     <td class="p-4 text-center">
-                        <span class="px-2 py-1 rounded text-[10px] font-bold ${r.balance <= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.balance <= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                             ${r.balance <= 0 ? 'PAID' : 'UNPAID'}
                         </span>
                     </td>
@@ -382,31 +519,22 @@
         function showStatus(m, t) {
             const el = document.getElementById('statusMsg');
             el.innerText = m;
-            el.className = `p-4 rounded-xl text-sm font-medium block border ${t === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`;
-            setTimeout(() => el.classList.add('hidden'), 5000);
+            el.className = `fixed top-6 left-1/2 -translate-x-1/2 p-4 rounded-xl shadow-lg z-[60] block ${t === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
         }
-
-        document.getElementById('uploadFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const workbook = XLSX.read(event.target.result, { type: 'binary' });
-                const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-                const processed = processDataArray(data);
-                rawData = processed.result;
-                updateDropdowns(processed.depts, processed.expenseTypes);
-                applyFilters();
-                showStatus("โหลดไฟล์สำเร็จ!", "success");
-            };
-            reader.readAsBinaryString(file);
-        });
 
         document.getElementById('syncCloudBtn').addEventListener('click', fetchFromCloud);
         ['filterCreditor', 'filterInvoice', 'filterDept', 'filterStatus'].forEach(id => {
             document.getElementById(id).addEventListener('input', applyFilters);
-            document.getElementById(id).addEventListener('change', applyFilters);
         });
+
+        document.getElementById('expenseBox').addEventListener('click', (e) => {
+            document.getElementById('expenseDropdown').classList.toggle('show');
+            e.stopPropagation();
+        });
+        
+        document.addEventListener('click', () => document.getElementById('expenseDropdown').classList.remove('show'));
 
         document.getElementById('darkModeToggle').addEventListener('click', () => {
             const isDark = document.documentElement.classList.toggle('dark');
