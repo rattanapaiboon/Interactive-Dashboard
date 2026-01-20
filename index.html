@@ -29,7 +29,7 @@
         <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-colors">
             <div class="flex flex-col">
-                <h1 class="text-2xl font-bold text-gray-800 leading-tight">รายงานเจ้าหนี้ ประจำเดือนปัจจุบัน (ระบบออนไลน์)</h1>
+                <h1 class="text-2xl font-bold text-gray-800 leading-tight">รายงานเจ้าหนี้ (ระบบออนไลน์)</h1>
                 <p class="text-indigo-600 font-semibold text-sm italic">เชื่อมต่อกับ Google Sheets ล่าสุดแล้ว</p>
             </div>
             
@@ -113,12 +113,12 @@
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="bg-gray-50 dark:bg-slate-800 text-gray-500 font-semibold border-b">
-                            <th class="p-4">วันที่รับ</th>
+                            <th class="p-4">วันที่รับของ</th>
                             <th class="p-4">เลขบิล</th>
                             <th class="p-4">ชื่อเจ้าหนี้</th>
-                            <th class="p-4">ประเภท</th>
                             <th class="p-4 text-right">จำนวนเงิน</th>
                             <th class="p-4 text-right">คงเหลือ</th>
+                            <th class="p-4 text-center">วันที่ชำระเงิน</th>
                             <th class="p-4 text-center">สถานะ</th>
                         </tr>
                     </thead>
@@ -135,7 +135,6 @@
         let rawData = [];
         let creditorChart, deptChart;
 
-        // ลิงก์ Google Sheets ที่ปรับจาก pubhtml เป็น csv เพื่อความเสถียร
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
 
         async function fetchFromCloud() {
@@ -146,19 +145,11 @@
             document.body.classList.add('loading-active');
 
             try {
-                // เพิ่ม Timestamp ป้องกัน Cache
                 const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
-                
                 if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อ Google Sheets ได้");
-                
                 const csvText = await response.text();
-                
-                // ตรวจสอบเบื้องต้นว่าเป็นข้อมูล CSV จริงหรือไม่
-                if (csvText.includes('<!DOCTYPE html>')) {
-                    throw new Error("ตั้งค่าผิดพลาด: ต้องเลือก 'Publish to web' เป็น 'CSV' ไม่ใช่ 'Web page'");
-                }
+                if (csvText.includes('<!DOCTYPE html>')) throw new Error("ตั้งค่าผิดพลาด: ต้องเลือก 'Publish to web' เป็น 'CSV'");
 
-                // Parse CSV
                 const rows = csvText.split(/\r?\n/).map(line => {
                     const res = [];
                     let c = "", q = false;
@@ -191,8 +182,7 @@
             const depts = new Set();
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
-                // คอลัมน์ที่ 2 = เจ้าหนี้, 3 = เลขบิล, 4 = จำนวนเงิน
-                if (!row || row.length < 13 || (!row[2] && !row[3])) continue;
+                if (!row || row.length < 9 || (!row[2] && !row[3])) continue;
                 
                 const parseNum = (v) => {
                     if (!v) return 0;
@@ -206,6 +196,7 @@
                     amount: parseNum(row[4]),
                     paid: parseNum(row[5]),
                     balance: parseNum(row[7]),
+                    paymentDate: row[8]?.replace(/"/g, '').trim() || '-', // วันที่ชำระเงิน (คอลัมน์ที่ 8)
                     expenseType: row[12]?.replace(/"/g, '').trim() || 'ไม่ระบุ',
                     department: row[13]?.replace(/"/g, '').trim() || 'ไม่ระบุ'
                 };
@@ -238,7 +229,6 @@
         }
 
         function updateUI(data) {
-            // Stats
             const t = data.reduce((s, r) => s + r.amount, 0);
             const p = data.reduce((s, r) => s + r.paid, 0);
             const b = data.reduce((s, r) => s + r.balance, 0);
@@ -246,51 +236,41 @@
             document.getElementById('statPaid').innerText = p.toLocaleString(undefined, {minimumFractionDigits: 2});
             document.getElementById('statBalance').innerText = b.toLocaleString(undefined, {minimumFractionDigits: 2});
 
-            // Charts
             const isDark = document.documentElement.classList.contains('dark');
             const textColor = isDark ? '#94a3b8' : '#64748b';
 
-            // Top Creditors
             const cMap = {}; data.forEach(d => cMap[d.creditor] = (cMap[d.creditor] || 0) + d.amount);
             const topC = Object.entries(cMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
             if (creditorChart) creditorChart.destroy();
             creditorChart = new Chart(document.getElementById('creditorChart'), {
                 type: 'bar',
-                data: { 
-                    labels: topC.map(c => c[0]), 
-                    datasets: [{ label: 'ยอดหนี้', data: topC.map(c => c[1]), backgroundColor: '#6366f1', borderRadius: 6 }] 
-                },
+                data: { labels: topC.map(c => c[0]), datasets: [{ label: 'ยอดหนี้', data: topC.map(c => c[1]), backgroundColor: '#6366f1', borderRadius: 6 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            // Dept Pie
             const dMap = {}; data.forEach(d => dMap[d.department] = (dMap[d.department] || 0) + d.amount);
             if (deptChart) deptChart.destroy();
             deptChart = new Chart(document.getElementById('deptChart'), {
                 type: 'doughnut',
-                data: { 
-                    labels: Object.keys(dMap), 
-                    datasets: [{ data: Object.values(dMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] 
-                },
+                data: { labels: Object.keys(dMap), datasets: [{ data: Object.values(dMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } } } }
             });
 
-            // Table
             document.getElementById('dataTableBody').innerHTML = data.length ? data.map(r => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                     <td class="p-4 text-gray-500">${r.date}</td>
                     <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
                     <td class="p-4 font-semibold text-gray-800 dark:text-gray-100">${r.creditor}</td>
-                    <td class="p-4 text-gray-400 text-xs">${r.expenseType}</td>
-                    <td class="p-4 text-right">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-right font-medium">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td class="p-4 text-right font-bold ${r.balance > 0 ? 'text-red-500' : 'text-green-500'}">${r.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-center text-gray-600 dark:text-gray-400 font-medium">${r.paymentDate || '-'}</td>
                     <td class="p-4 text-center">
                         <span class="px-2 py-1 rounded text-[10px] font-bold ${r.balance <= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                             ${r.balance <= 0 ? 'PAID' : 'UNPAID'}
                         </span>
                     </td>
                 </tr>
-            `).join('') : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา</td></tr>';
+            `).join('') : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>';
         }
 
         function showStatus(m, t) {
@@ -305,7 +285,6 @@
             sel.innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
         }
 
-        // Upload Local File
         document.getElementById('uploadFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -322,13 +301,11 @@
             reader.readAsBinaryString(file);
         });
 
-        // Event Listeners
         document.getElementById('syncCloudBtn').addEventListener('click', fetchFromCloud);
         ['filterCreditor', 'filterInvoice', 'filterExpenseType', 'filterDept', 'filterStatus'].forEach(id => {
             document.getElementById(id).addEventListener('input', applyFilters);
         });
 
-        // Dark Mode
         document.getElementById('darkModeToggle').addEventListener('click', () => {
             const isDark = document.documentElement.classList.toggle('dark');
             document.getElementById('sunIcon').classList.toggle('hidden', !isDark);
