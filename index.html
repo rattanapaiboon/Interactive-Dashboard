@@ -19,6 +19,19 @@
         .dark .bg-gray-50 { background-color: #0f172a; }
         .dark .border-gray-100 { border-color: #334155; }
         .dark input, .dark select { background-color: #1e293b; border-color: #334155; color: #f1f5f9; }
+        
+        /* Multi-select styling */
+        .multi-select-container { position: relative; width: 100%; }
+        .multi-select-box { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .multi-select-dropdown { 
+            position: absolute; top: 105%; left: 0; width: 100%; z-index: 50; 
+            max-height: 250px; overflow-y: auto; background: white; 
+            border: 1px solid #e2e8f0; border-radius: 0.75rem; display: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .multi-select-dropdown.show { display: block; }
+        .dark .multi-select-dropdown { background: #1e293b; border-color: #334155; }
+        
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .loading-active { animation: pulse-soft 2s infinite; pointer-events: none; }
     </style>
@@ -72,12 +85,33 @@
         </div>
 
         <!-- Filters -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <input type="text" id="filterCreditor" placeholder="ชื่อเจ้าหนี้..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-            <input type="text" id="filterInvoice" placeholder="เลขบิล..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-            <input type="text" id="filterExpenseType" placeholder="ประเภทค่าใช้จ่าย..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-            <select id="filterDept" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm"><option value="All">ทุกหน่วยงาน</option></select>
-            <select id="filterStatus" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <input type="text" id="filterCreditor" placeholder="ชื่อเจ้าหนี้..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm w-full">
+            <input type="text" id="filterInvoice" placeholder="เลขบิล..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm w-full">
+            
+            <!-- Multi-select for Expense Type -->
+            <div class="multi-select-container">
+                <div id="expenseBox" class="multi-select-box px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-500 bg-white dark:bg-slate-800 dark:border-slate-700">
+                    <span id="expenseLabel" class="truncate">ทุกประเภทค่าใช้จ่าย</span>
+                    <i data-lucide="chevron-down" class="w-4 h-4 ml-2 flex-shrink-0"></i>
+                </div>
+                <div id="expenseDropdown" class="multi-select-dropdown p-2 space-y-1">
+                    <label class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
+                        <input type="checkbox" id="selectAllExpense" checked class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm dark:text-gray-200">ทั้งหมด</span>
+                    </label>
+                    <hr class="border-gray-100 dark:border-slate-700 my-1">
+                    <div id="expenseOptionsList" class="space-y-1">
+                        <!-- Options injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <select id="filterDept" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm w-full">
+                <option value="All">ทุกหน่วยงาน</option>
+            </select>
+            
+            <select id="filterStatus" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm w-full">
                 <option value="All">ทุกสถานะ</option>
                 <option value="Paid">จ่ายครบแล้ว</option>
                 <option value="Unpaid">ยังไม่จ่าย</option>
@@ -133,9 +167,22 @@
     <script>
         lucide.createIcons();
         let rawData = [];
+        let selectedExpenseTypes = new Set();
         let creditorChart, deptChart;
 
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
+
+        // Toggle Dropdown
+        document.getElementById('expenseBox').addEventListener('click', (e) => {
+            document.getElementById('expenseDropdown').classList.toggle('show');
+            e.stopPropagation();
+        });
+
+        document.addEventListener('click', () => {
+            document.getElementById('expenseDropdown').classList.remove('show');
+        });
+
+        document.getElementById('expenseDropdown').addEventListener('click', (e) => e.stopPropagation());
 
         async function fetchFromCloud() {
             const btn = document.getElementById('syncCloudBtn');
@@ -164,7 +211,7 @@
 
                 const processed = processDataArray(rows);
                 rawData = processed.result;
-                updateDeptFilter(processed.depts);
+                updateDropdowns(processed.depts, processed.expenseTypes);
                 applyFilters();
                 showStatus("อัปเดตข้อมูลจากคลาวด์สำเร็จ!", "success");
             } catch (err) {
@@ -180,9 +227,10 @@
         function processDataArray(data) {
             const result = [];
             const depts = new Set();
+            const expenseTypes = new Set();
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
-                if (!row || row.length < 9 || (!row[2] && !row[3])) continue;
+                if (!row || row.length < 13 || (!row[2] && !row[3])) continue;
                 
                 const parseNum = (v) => {
                     if (!v) return 0;
@@ -196,27 +244,85 @@
                     amount: parseNum(row[4]),
                     paid: parseNum(row[5]),
                     balance: parseNum(row[7]),
-                    paymentDate: row[8]?.replace(/"/g, '').trim() || '-', // วันที่ชำระเงิน (คอลัมน์ที่ 8)
+                    paymentDate: row[8]?.replace(/"/g, '').trim() || '-',
                     expenseType: row[12]?.replace(/"/g, '').trim() || 'ไม่ระบุ',
                     department: row[13]?.replace(/"/g, '').trim() || 'ไม่ระบุ'
                 };
                 result.push(item);
                 if (item.department && item.department !== 'ไม่ระบุ') depts.add(item.department);
+                if (item.expenseType && item.expenseType !== 'ไม่ระบุ') expenseTypes.add(item.expenseType);
             }
-            return { result, depts };
+            return { result, depts, expenseTypes };
+        }
+
+        function updateDropdowns(depts, expenseTypes) {
+            // Update Dept Dropdown
+            const deptSel = document.getElementById('filterDept');
+            deptSel.innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + 
+                Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
+            
+            // Update Multi-select Expense Types
+            const expenseList = document.getElementById('expenseOptionsList');
+            const sortedTypes = Array.from(expenseTypes).sort();
+            
+            expenseList.innerHTML = sortedTypes.map(type => `
+                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
+                    <input type="checkbox" value="${type}" checked class="expense-item-checkbox w-4 h-4 rounded text-indigo-600">
+                    <span class="text-sm dark:text-gray-200">${type}</span>
+                </label>
+            `).join('');
+
+            // Reset selection to all
+            selectedExpenseTypes = new Set(sortedTypes);
+            document.getElementById('selectAllExpense').checked = true;
+            updateExpenseLabel();
+
+            // Event Listeners for Checkboxes
+            document.querySelectorAll('.expense-item-checkbox').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    if (cb.checked) selectedExpenseTypes.add(cb.value);
+                    else {
+                        selectedExpenseTypes.delete(cb.value);
+                        document.getElementById('selectAllExpense').checked = false;
+                    }
+                    if (selectedExpenseTypes.size === sortedTypes.length) document.getElementById('selectAllExpense').checked = true;
+                    updateExpenseLabel();
+                    applyFilters();
+                });
+            });
+
+            document.getElementById('selectAllExpense').addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.expense-item-checkbox').forEach(cb => {
+                    cb.checked = isChecked;
+                    if (isChecked) selectedExpenseTypes.add(cb.value);
+                    else selectedExpenseTypes.delete(cb.value);
+                });
+                updateExpenseLabel();
+                applyFilters();
+            });
+        }
+
+        function updateExpenseLabel() {
+            const label = document.getElementById('expenseLabel');
+            const count = selectedExpenseTypes.size;
+            const total = document.querySelectorAll('.expense-item-checkbox').length;
+            
+            if (count === 0) label.innerText = "ไม่ได้เลือกประเภท";
+            else if (count === total) label.innerText = "ทุกประเภทค่าใช้จ่าย";
+            else label.innerText = `เลือกแล้ว ${count} ประเภท`;
         }
 
         function applyFilters() {
             const ck = document.getElementById('filterCreditor').value.toLowerCase();
             const ik = document.getElementById('filterInvoice').value.toLowerCase();
-            const ek = document.getElementById('filterExpenseType').value.toLowerCase();
             const dk = document.getElementById('filterDept').value;
             const sk = document.getElementById('filterStatus').value;
 
             const filtered = rawData.filter(d => {
                 const mC = d.creditor.toLowerCase().includes(ck);
                 const mI = d.invoice.toLowerCase().includes(ik);
-                const mE = d.expenseType.toLowerCase().includes(ek);
+                const mE = selectedExpenseTypes.has(d.expenseType);
                 const mD = dk === 'All' || d.department === dk;
                 let mS = true;
                 if (sk === 'Paid') mS = d.balance <= 0;
@@ -280,11 +386,6 @@
             setTimeout(() => el.classList.add('hidden'), 5000);
         }
 
-        function updateDeptFilter(depts) {
-            const sel = document.getElementById('filterDept');
-            sel.innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
-        }
-
         document.getElementById('uploadFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -294,7 +395,7 @@
                 const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
                 const processed = processDataArray(data);
                 rawData = processed.result;
-                updateDeptFilter(processed.depts);
+                updateDropdowns(processed.depts, processed.expenseTypes);
                 applyFilters();
                 showStatus("โหลดไฟล์สำเร็จ!", "success");
             };
@@ -302,8 +403,9 @@
         });
 
         document.getElementById('syncCloudBtn').addEventListener('click', fetchFromCloud);
-        ['filterCreditor', 'filterInvoice', 'filterExpenseType', 'filterDept', 'filterStatus'].forEach(id => {
+        ['filterCreditor', 'filterInvoice', 'filterDept', 'filterStatus'].forEach(id => {
             document.getElementById(id).addEventListener('input', applyFilters);
+            document.getElementById(id).addEventListener('change', applyFilters);
         });
 
         document.getElementById('darkModeToggle').addEventListener('click', () => {
