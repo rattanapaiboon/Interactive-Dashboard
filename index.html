@@ -145,32 +145,6 @@
             </div>
         </div>
 
-        <!-- Expense Summary Table -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
-                <i data-lucide="list-checks" class="w-5 h-5 text-indigo-500"></i>
-                <h3 class="font-bold text-gray-700 dark:text-gray-200">สรุปตามประเภทค่าใช้จ่าย</h3>
-            </div>
-            <div class="p-4 overflow-x-auto">
-                <table class="w-full text-left text-sm table-bordered border-collapse">
-                    <thead>
-                        <tr class="text-gray-600 font-bold bg-gray-100 dark:bg-slate-700">
-                            <th class="p-3 text-center w-16">ลำดับ</th>
-                            <th class="p-3">ประเภทค่าใช้จ่าย</th>
-                            <th class="p-3 text-center">จำนวนรายการ</th>
-                            <th class="p-3 text-right">จำนวนเงิน</th>
-                            <th class="p-3 text-right">จ่ายแล้ว</th>
-                            <th class="p-3 text-right">ปรับปรุง</th>
-                            <th class="p-3 text-right">คงเหลือ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="summaryTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
-                        <tr><td colspan="7" class="p-6 text-center text-gray-400">ไม่มีข้อมูลสรุป</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <!-- Details Table -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
@@ -185,13 +159,15 @@
                             <th class="p-4">เลขบิล</th>
                             <th class="p-4">ชื่อเจ้าหนี้</th>
                             <th class="p-4 text-right">จำนวนเงิน</th>
+                            <th class="p-4 text-right">จ่าย</th>
+                            <th class="p-4 text-right">ปรับปรุง</th>
                             <th class="p-4 text-right">คงเหลือ</th>
                             <th class="p-4 text-center">วันที่ชำระเงิน</th>
                             <th class="p-4 text-center">สถานะ</th>
                         </tr>
                     </thead>
                     <tbody id="dataTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
-                        <tr><td colspan="7" class="p-10 text-center text-gray-400 font-medium italic">กรุณากดปุ่มอัปเดตข้อมูล</td></tr>
+                        <tr><td colspan="9" class="p-10 text-center text-gray-400 font-medium italic">กรุณากดปุ่มอัปเดตข้อมูล</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -232,7 +208,7 @@
     <div id="statusMsg" class="hidden fixed top-6 left-1/2 -translate-x-1/2 p-4 rounded-xl shadow-lg z-[60] animate-bounce"></div>
 
     <script>
-        const apiKey = ""; // API Key handled by environment
+        const apiKey = ""; 
         const modelName = "gemini-2.5-flash-preview-09-2025";
         
         let rawData = [];
@@ -242,7 +218,6 @@
 
         lucide.createIcons();
 
-        // --- AI API Functions ---
         async function callGemini(prompt, systemPrompt = "คุณคือผู้ช่วยวิเคราะห์ข้อมูลบัญชีเจ้าหนี้มืออาชีพ") {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
             let retries = 0;
@@ -266,10 +241,9 @@
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
-            return "เกิดข้อผิดพลาดในการเชื่อมต่อ AI หลังจากพยายามหลายครั้ง";
+            return "เกิดข้อผิดพลาดในการเชื่อมต่อ AI";
         }
 
-        // --- Event Listeners & UI Logic ---
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
 
         document.getElementById('aiAnalyzeBtn').addEventListener('click', async () => {
@@ -283,22 +257,17 @@
             content.innerText = "✨ กำลังส่งข้อมูลให้ Gemini AI ประมวลผลภาพรวม...";
 
             const summaryText = filteredDataGlobal.slice(0, 50).map(d => 
-                `เจ้าหนี้: ${d.creditor}, ยอดเงิน: ${d.amount}, คงเหลือ: ${d.balance}, ประเภท: ${d.expenseType}`
+                `เจ้าหนี้: ${d.creditor}, บิล: ${d.invoice}, ยอด: ${d.amount}, จ่าย: ${d.paid}, ปรับปรุง: ${d.adjustment}, คงเหลือ: ${d.balance}`
             ).join("\n");
 
-            const prompt = `จากข้อมูลเจ้าหนี้ต่อไปนี้ ช่วยวิเคราะห์ 3 ประเด็นสำคัญ: 
-            1. สรุปภาพรวมหนี้ 2. จุดที่ควรระวัง 3. คำแนะนำการบริหารจัดการ
-            ข้อมูล:\n${summaryText}`;
-
+            const prompt = `วิเคราะห์ข้อมูลเจ้าหนี้ 3 ประเด็น: 1. ภาพรวมหนี้และประสิทธิภาพการจ่าย 2. รายการที่มีการปรับปรุงเจ้าหนี้ผิดปกติ 3. ข้อเสนอแนะ\nข้อมูล:\n${summaryText}`;
             const analysis = await callGemini(prompt);
             content.innerText = analysis;
             lucide.createIcons();
         });
 
-        // Chat Logic
         const toggleChat = () => {
             const sidebar = document.getElementById('aiChatSidebar');
-            const isHidden = sidebar.classList.contains('translate-x-full');
             sidebar.classList.toggle('translate-x-full');
         };
 
@@ -311,27 +280,22 @@
             const text = input.value.trim();
             if (!text) return;
 
-            // Add User Message
             container.innerHTML += `<div class="bg-indigo-100 dark:bg-indigo-900/40 p-3 rounded-2xl text-sm self-end ml-auto max-w-[85%]">${text}</div>`;
             input.value = "";
             container.scrollTop = container.scrollHeight;
 
-            // AI Loading
             const loadingId = "ai-loading-" + Date.now();
             container.innerHTML += `<div id="${loadingId}" class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm italic animate-pulse">✨ กำลังหาคำตอบ...</div>`;
 
-            const dataContext = filteredDataGlobal.slice(0, 100).map(d => JSON.stringify(d)).join("|");
-            const prompt = `ผู้ใช้งานถามว่า: "${text}" 
-            อ้างอิงข้อมูลในตาราง (JSON): ${dataContext}
-            ให้ตอบเฉพาะข้อมูลที่ระบุในตารางอย่างแม่นยำและเป็นมิตร`;
+            const dataContext = filteredDataGlobal.slice(0, 80).map(d => `บิล ${d.invoice} จาก ${d.creditor} ยอด ${d.amount} (จ่ายแล้ว ${d.paid}, ปรับปรุง ${d.adjustment}, คงเหลือ ${d.balance})`).join("|");
+            const prompt = `คำถาม: "${text}" ข้อมูลตาราง: ${dataContext}`;
 
-            const aiResponse = await callGemini(prompt, "คุณคือ AI Chatbot ที่เข้าถึงข้อมูลเจ้าหนี้แบบ Real-time ตอบเป็นภาษาไทย");
+            const aiResponse = await callGemini(prompt, "คุณคือ AI ผู้ช่วยบัญชี ตอบเป็นภาษาไทย อ้างอิงยอดจ่ายและปรับปรุงจากข้อมูลที่ให้");
             document.getElementById(loadingId).remove();
             container.innerHTML += `<div class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 max-w-[85%]">${aiResponse}</div>`;
             container.scrollTop = container.scrollHeight;
         });
 
-        // --- Core Dashboard Functions (From Original) ---
         async function fetchFromCloud() {
             const btn = document.getElementById('syncCloudBtn');
             const icon = document.getElementById('syncIcon');
@@ -432,45 +396,6 @@
             });
 
             updateUI(filteredDataGlobal);
-            updateSummaryTable(filteredDataGlobal);
-        }
-
-        function updateSummaryTable(data) {
-            const summaryMap = {};
-            data.forEach(item => {
-                if (!summaryMap[item.expenseType]) summaryMap[item.expenseType] = { count: 0, total: 0, paid: 0, adj: 0, bal: 0 };
-                summaryMap[item.expenseType].count++;
-                summaryMap[item.expenseType].total += item.amount;
-                summaryMap[item.expenseType].paid += item.paid;
-                summaryMap[item.expenseType].adj += item.adjustment;
-                summaryMap[item.expenseType].bal += item.balance;
-            });
-
-            const sorted = Object.entries(summaryMap).sort((a, b) => a[0].localeCompare(b[0], 'th'));
-            const total = sorted.reduce((acc, [_, v]) => {
-                acc.count += v.count; acc.total += v.total; acc.paid += v.paid; acc.adj += v.adj; acc.bal += v.bal; return acc;
-            }, { count: 0, total: 0, paid: 0, adj: 0, bal: 0 });
-
-            document.getElementById('summaryTableBody').innerHTML = sorted.map(([type, v], i) => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800">
-                    <td class="p-3 text-center text-gray-500">${i + 1}</td>
-                    <td class="p-3 font-medium">${type}</td>
-                    <td class="p-3 text-center text-indigo-600 font-bold">${v.count}</td>
-                    <td class="p-3 text-right">${v.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right text-green-600">${v.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right text-orange-500">${v.adj.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right font-bold text-red-600">${v.bal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                </tr>
-            `).join('') + (sorted.length ? `
-                <tr class="bg-gray-100 dark:bg-slate-800 font-bold border-t-2 border-gray-300">
-                    <td colspan="2" class="p-3 text-right">รวมทั้งสิ้น:</td>
-                    <td class="p-3 text-center">${total.count}</td>
-                    <td class="p-3 text-right">${total.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right">${total.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right">${total.adj.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td class="p-3 text-right">${total.bal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                </tr>
-            ` : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>');
         }
 
         function updateUI(data) {
@@ -505,6 +430,8 @@
                     <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
                     <td class="p-4 font-semibold">${r.creditor}</td>
                     <td class="p-4 text-right">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-right text-emerald-600">${r.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-right text-orange-500">${r.adjustment.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td class="p-4 text-right font-bold ${r.balance > 0 ? 'text-red-500' : 'text-green-600'}">${r.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td class="p-4 text-center font-medium">${r.paymentDate || '-'}</td>
                     <td class="p-4 text-center">
@@ -513,7 +440,7 @@
                         </span>
                     </td>
                 </tr>
-            `).join('') : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>';
+            `).join('') : '<tr><td colspan="9" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>';
         }
 
         function showStatus(m, t) {
@@ -533,7 +460,6 @@
             document.getElementById('expenseDropdown').classList.toggle('show');
             e.stopPropagation();
         });
-        
         document.addEventListener('click', () => document.getElementById('expenseDropdown').classList.remove('show'));
 
         document.getElementById('darkModeToggle').addEventListener('click', () => {
