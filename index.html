@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานเจ้าหนี้ Interactive Dashboard (Online Version)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; transition: background-color 0.3s ease; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .dark body { background-color: #0f172a; }
+        .dark .bg-white { background-color: #1e293b; border-color: #334155; }
+        .dark .text-gray-800 { color: #f1f5f9; }
+        .dark .text-gray-500 { color: #94a3b8; }
+        .dark .bg-gray-50 { background-color: #0f172a; }
+        .dark .border-gray-100 { border-color: #334155; }
+        .dark input, .dark select { background-color: #1e293b; border-color: #334155; color: #f1f5f9; }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .loading-active { animation: pulse-soft 2s infinite; pointer-events: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8 bg-gray-50">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-colors">
+            <div class="flex flex-col">
+                <h1 class="text-2xl font-bold text-gray-800 leading-tight">รายงานเจ้าหนี้ (ระบบออนไลน์)</h1>
+                <p class="text-indigo-600 font-semibold text-sm italic">เชื่อมต่อกับ Google Sheets ล่าสุดแล้ว</p>
+            </div>
+            
+            <div class="mt-4 md:mt-0 flex flex-wrap justify-center items-center gap-3">
+                <button id="syncCloudBtn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl transition shadow-md active:scale-95">
+                    <i data-lucide="refresh-cw" class="w-5 h-5" id="syncIcon"></i>
+                    <span>อัปเดตจาก Google Sheets</span>
+                </button>
+
+                <input type="file" id="uploadFile" accept=".csv, .xlsx, .xls" class="hidden">
+                <button onclick="document.getElementById('uploadFile').click()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition shadow-md active:scale-95">
+                    <i data-lucide="file-up" class="w-5 h-5"></i>
+                    <span>อัปโหลด Excel เอง</span>
+                </button>
+                
+                <button id="darkModeToggle" class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all">
+                    <i data-lucide="moon" id="moonIcon" class="w-5 h-5"></i>
+                    <i data-lucide="sun" id="sunIcon" class="w-5 h-5 hidden"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Notification Bar -->
+        <div id="statusMsg" class="hidden p-4 rounded-xl text-sm font-medium border animate-in fade-in slide-in-from-top-2 duration-300"></div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">ยอดหนี้รวม</p>
+                <h3 id="statTotal" class="text-3xl font-bold text-gray-800">0.00</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-green-500">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">จ่ายแล้ว</p>
+                <h3 id="statPaid" class="text-3xl font-bold text-green-600">0.00</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-red-500">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">คงเหลือสุทธิ</p>
+                <h3 id="statBalance" class="text-3xl font-bold text-red-600">0.00</h3>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <input type="text" id="filterCreditor" placeholder="ชื่อเจ้าหนี้..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+            <input type="text" id="filterInvoice" placeholder="เลขบิล..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+            <input type="text" id="filterExpenseType" placeholder="ประเภทค่าใช้จ่าย..." class="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+            <select id="filterDept" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm"><option value="All">ทุกหน่วยงาน</option></select>
+            <select id="filterStatus" class="px-4 py-2 border border-gray-200 rounded-xl outline-none text-sm">
+                <option value="All">ทุกสถานะ</option>
+                <option value="Paid">จ่ายครบแล้ว</option>
+                <option value="Unpaid">ยังไม่จ่าย</option>
+                <option value="Partial">จ่ายบางส่วน</option>
+            </select>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-500"></i>
+                    5 อันดับเจ้าหนี้สูงสุด
+                </h3>
+                <div class="chart-container">
+                    <canvas id="creditorChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-500"></i>
+                    สัดส่วนตามหน่วยงาน
+                </h3>
+                <div class="chart-container">
+                    <canvas id="deptChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-slate-800 text-gray-500 font-semibold border-b">
+                            <th class="p-4">วันที่รับ</th>
+                            <th class="p-4">เลขบิล</th>
+                            <th class="p-4">ชื่อเจ้าหนี้</th>
+                            <th class="p-4">ประเภท</th>
+                            <th class="p-4 text-right">จำนวนเงิน</th>
+                            <th class="p-4 text-right">คงเหลือ</th>
+                            <th class="p-4 text-center">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-gray-50 dark:divide-slate-700">
+                        <tr><td colspan="7" class="p-10 text-center text-gray-400">กรุณากดปุ่มอัปเดตข้อมูลจาก Google Sheets</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let rawData = [];
+        let creditorChart, deptChart;
+
+        // ลิงก์ Google Sheets ที่ปรับจาก pubhtml เป็น csv เพื่อความเสถียร
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
+
+        async function fetchFromCloud() {
+            const btn = document.getElementById('syncCloudBtn');
+            const icon = document.getElementById('syncIcon');
+            btn.disabled = true;
+            icon.classList.add('animate-spin');
+            document.body.classList.add('loading-active');
+
+            try {
+                // เพิ่ม Timestamp ป้องกัน Cache
+                const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
+                
+                if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อ Google Sheets ได้");
+                
+                const csvText = await response.text();
+                
+                // ตรวจสอบเบื้องต้นว่าเป็นข้อมูล CSV จริงหรือไม่
+                if (csvText.includes('<!DOCTYPE html>')) {
+                    throw new Error("ตั้งค่าผิดพลาด: ต้องเลือก 'Publish to web' เป็น 'CSV' ไม่ใช่ 'Web page'");
+                }
+
+                // Parse CSV
+                const rows = csvText.split(/\r?\n/).map(line => {
+                    const res = [];
+                    let c = "", q = false;
+                    for (let char of line) {
+                        if (char === '"') q = !q;
+                        else if (char === ',' && !q) { res.push(c); c = ""; }
+                        else c += char;
+                    }
+                    res.push(c);
+                    return res;
+                });
+
+                const processed = processDataArray(rows);
+                rawData = processed.result;
+                updateDeptFilter(processed.depts);
+                applyFilters();
+                showStatus("อัปเดตข้อมูลจากคลาวด์สำเร็จ!", "success");
+            } catch (err) {
+                console.error(err);
+                showStatus(`ข้อผิดพลาด: ${err.message}`, "error");
+            } finally {
+                btn.disabled = false;
+                icon.classList.remove('animate-spin');
+                document.body.classList.remove('loading-active');
+            }
+        }
+
+        function processDataArray(data) {
+            const result = [];
+            const depts = new Set();
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                // คอลัมน์ที่ 2 = เจ้าหนี้, 3 = เลขบิล, 4 = จำนวนเงิน
+                if (!row || row.length < 13 || (!row[2] && !row[3])) continue;
+                
+                const parseNum = (v) => {
+                    if (!v) return 0;
+                    return parseFloat(String(v).replace(/[^\d.-]/g, '')) || 0;
+                };
+
+                const item = {
+                    date: row[1]?.replace(/"/g, '').trim() || '-',
+                    creditor: row[2]?.replace(/"/g, '').trim() || '-',
+                    invoice: row[3]?.replace(/"/g, '').trim() || '-',
+                    amount: parseNum(row[4]),
+                    paid: parseNum(row[5]),
+                    balance: parseNum(row[7]),
+                    expenseType: row[12]?.replace(/"/g, '').trim() || 'ไม่ระบุ',
+                    department: row[13]?.replace(/"/g, '').trim() || 'ไม่ระบุ'
+                };
+                result.push(item);
+                if (item.department && item.department !== 'ไม่ระบุ') depts.add(item.department);
+            }
+            return { result, depts };
+        }
+
+        function applyFilters() {
+            const ck = document.getElementById('filterCreditor').value.toLowerCase();
+            const ik = document.getElementById('filterInvoice').value.toLowerCase();
+            const ek = document.getElementById('filterExpenseType').value.toLowerCase();
+            const dk = document.getElementById('filterDept').value;
+            const sk = document.getElementById('filterStatus').value;
+
+            const filtered = rawData.filter(d => {
+                const mC = d.creditor.toLowerCase().includes(ck);
+                const mI = d.invoice.toLowerCase().includes(ik);
+                const mE = d.expenseType.toLowerCase().includes(ek);
+                const mD = dk === 'All' || d.department === dk;
+                let mS = true;
+                if (sk === 'Paid') mS = d.balance <= 0;
+                else if (sk === 'Unpaid') mS = d.paid === 0;
+                else if (sk === 'Partial') mS = d.paid > 0 && d.balance > 0;
+                return mC && mI && mE && mD && mS;
+            });
+
+            updateUI(filtered);
+        }
+
+        function updateUI(data) {
+            // Stats
+            const t = data.reduce((s, r) => s + r.amount, 0);
+            const p = data.reduce((s, r) => s + r.paid, 0);
+            const b = data.reduce((s, r) => s + r.balance, 0);
+            document.getElementById('statTotal').innerText = t.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('statPaid').innerText = p.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('statBalance').innerText = b.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+            // Charts
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+
+            // Top Creditors
+            const cMap = {}; data.forEach(d => cMap[d.creditor] = (cMap[d.creditor] || 0) + d.amount);
+            const topC = Object.entries(cMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            if (creditorChart) creditorChart.destroy();
+            creditorChart = new Chart(document.getElementById('creditorChart'), {
+                type: 'bar',
+                data: { 
+                    labels: topC.map(c => c[0]), 
+                    datasets: [{ label: 'ยอดหนี้', data: topC.map(c => c[1]), backgroundColor: '#6366f1', borderRadius: 6 }] 
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Dept Pie
+            const dMap = {}; data.forEach(d => dMap[d.department] = (dMap[d.department] || 0) + d.amount);
+            if (deptChart) deptChart.destroy();
+            deptChart = new Chart(document.getElementById('deptChart'), {
+                type: 'doughnut',
+                data: { 
+                    labels: Object.keys(dMap), 
+                    datasets: [{ data: Object.values(dMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] 
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } } } }
+            });
+
+            // Table
+            document.getElementById('dataTableBody').innerHTML = data.length ? data.map(r => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                    <td class="p-4 text-gray-500">${r.date}</td>
+                    <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
+                    <td class="p-4 font-semibold text-gray-800 dark:text-gray-100">${r.creditor}</td>
+                    <td class="p-4 text-gray-400 text-xs">${r.expenseType}</td>
+                    <td class="p-4 text-right">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-right font-bold ${r.balance > 0 ? 'text-red-500' : 'text-green-500'}">${r.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-4 text-center">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold ${r.balance <= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${r.balance <= 0 ? 'PAID' : 'UNPAID'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="7" class="p-10 text-center text-gray-400">ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา</td></tr>';
+        }
+
+        function showStatus(m, t) {
+            const el = document.getElementById('statusMsg');
+            el.innerText = m;
+            el.className = `p-4 rounded-xl text-sm font-medium block border ${t === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`;
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        function updateDeptFilter(depts) {
+            const sel = document.getElementById('filterDept');
+            sel.innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        // Upload Local File
+        document.getElementById('uploadFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const workbook = XLSX.read(event.target.result, { type: 'binary' });
+                const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                const processed = processDataArray(data);
+                rawData = processed.result;
+                updateDeptFilter(processed.depts);
+                applyFilters();
+                showStatus("โหลดไฟล์สำเร็จ!", "success");
+            };
+            reader.readAsBinaryString(file);
+        });
+
+        // Event Listeners
+        document.getElementById('syncCloudBtn').addEventListener('click', fetchFromCloud);
+        ['filterCreditor', 'filterInvoice', 'filterExpenseType', 'filterDept', 'filterStatus'].forEach(id => {
+            document.getElementById(id).addEventListener('input', applyFilters);
+        });
+
+        // Dark Mode
+        document.getElementById('darkModeToggle').addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            document.getElementById('sunIcon').classList.toggle('hidden', !isDark);
+            document.getElementById('moonIcon').classList.toggle('hidden', isDark);
+            if (rawData.length) applyFilters();
+        });
+    </script>
+</body>
+</html>
