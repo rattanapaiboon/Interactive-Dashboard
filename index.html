@@ -59,22 +59,6 @@
             </div>
         </div>
 
-        <!-- AI Insight Panel -->
-        <div id="aiInsightPanel" class="hidden bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/30 p-6 rounded-2xl shadow-inner animate-in fade-in slide-in-from-top-4 duration-500">
-            <div class="flex justify-between items-start mb-3">
-                <h3 class="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
-                    <i data-lucide="brain-circuit" class="w-5 h-5"></i>
-                    AI Insights - บทวิเคราะห์สรุป
-                </h3>
-                <button onclick="document.getElementById('aiInsightPanel').classList.add('hidden')" class="text-indigo-400 hover:text-indigo-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div id="aiInsightContent" class="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed whitespace-pre-wrap">
-                กำลังรวบรวมข้อมูลเพื่อวิเคราะห์...
-            </div>
-        </div>
-
         <!-- Stats -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
@@ -145,6 +129,31 @@
             </div>
         </div>
 
+        <!-- Expense Type Summary Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 border-b bg-indigo-50 dark:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="list-checks" class="w-5 h-5 text-indigo-600"></i>
+                <h3 class="font-bold text-indigo-900 dark:text-indigo-300">สรุปตามประเภทค่าใช้จ่าย (เรียงตามชื่อ)</h3>
+            </div>
+            <div class="p-4 overflow-x-auto">
+                <table class="w-full text-left text-sm table-bordered border-collapse">
+                    <thead>
+                        <tr class="text-gray-600 font-bold bg-gray-100 dark:bg-slate-700">
+                            <th class="p-3">ประเภทค่าใช้จ่าย</th>
+                            <th class="p-3 text-center">จำนวนรายการ</th>
+                            <th class="p-3 text-right">จำนวนเงิน</th>
+                            <th class="p-3 text-right">จ่าย</th>
+                            <th class="p-3 text-right">ปรับปรุง</th>
+                            <th class="p-3 text-right">คงเหลือ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseSummaryBody" class="divide-y divide-gray-200 dark:divide-slate-700">
+                        <tr><td colspan="6" class="p-6 text-center text-gray-400 italic">กรุณาอัปเดตข้อมูล</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Details Table -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
@@ -174,12 +183,11 @@
         </div>
     </div>
 
-    <!-- AI Chat Toggle -->
+    <!-- AI Chat Toggle & Sidebar -->
     <button id="toggleChatBtn" class="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl z-40 transition-transform active:scale-95">
         <i data-lucide="message-square-text" class="w-6 h-6"></i>
     </button>
 
-    <!-- AI Chat Sidebar -->
     <div id="aiChatSidebar" class="fixed top-0 right-0 h-full w-full md:w-96 bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 border-l border-gray-200 dark:border-slate-700 flex flex-col">
         <div class="p-4 bg-indigo-600 text-white flex justify-between items-center">
             <h3 class="font-bold flex items-center gap-2">
@@ -190,11 +198,7 @@
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
-        <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4">
-            <div class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 max-w-[85%]">
-                สวัสดีครับ! ผมเป็นผู้ช่วย AI ประจำระบบบัญชี คุณสามารถสอบถามข้อมูลจากตารางเจ้าหนี้ได้เลยครับ
-            </div>
-        </div>
+        <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4"></div>
         <div class="p-4 border-t border-gray-200 dark:border-slate-700">
             <div class="flex gap-2">
                 <input type="text" id="chatInput" placeholder="พิมพ์คำถามที่นี่..." class="flex-1 px-4 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none text-sm">
@@ -218,91 +222,13 @@
 
         lucide.createIcons();
 
-        async function callGemini(prompt, systemPrompt = "คุณคือผู้ช่วยวิเคราะห์ข้อมูลบัญชีเจ้าหนี้มืออาชีพ") {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-            let retries = 0;
-            const maxRetries = 5;
-            
-            while (retries < maxRetries) {
-                try {
-                    const response = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }],
-                            systemInstruction: { parts: [{ text: systemPrompt }] }
-                        })
-                    });
-                    const result = await response.json();
-                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "ไม่สามารถสรุปข้อมูลได้ในขณะนี้";
-                } catch (error) {
-                    retries++;
-                    const delay = Math.pow(2, retries) * 500;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-            return "เกิดข้อผิดพลาดในการเชื่อมต่อ AI";
-        }
-
-        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
-
-        document.getElementById('aiAnalyzeBtn').addEventListener('click', async () => {
-            if (!filteredDataGlobal.length) {
-                showStatus("กรุณาอัปเดตข้อมูลก่อนวิเคราะห์", "error");
-                return;
-            }
-            const panel = document.getElementById('aiInsightPanel');
-            const content = document.getElementById('aiInsightContent');
-            panel.classList.remove('hidden');
-            content.innerText = "✨ กำลังส่งข้อมูลให้ Gemini AI ประมวลผลภาพรวม...";
-
-            const summaryText = filteredDataGlobal.slice(0, 50).map(d => 
-                `เจ้าหนี้: ${d.creditor}, บิล: ${d.invoice}, ยอด: ${d.amount}, จ่าย: ${d.paid}, ปรับปรุง: ${d.adjustment}, คงเหลือ: ${d.balance}`
-            ).join("\n");
-
-            const prompt = `วิเคราะห์ข้อมูลเจ้าหนี้ 3 ประเด็น: 1. ภาพรวมหนี้และประสิทธิภาพการจ่าย 2. รายการที่มีการปรับปรุงเจ้าหนี้ผิดปกติ 3. ข้อเสนอแนะ\nข้อมูล:\n${summaryText}`;
-            const analysis = await callGemini(prompt);
-            content.innerText = analysis;
-            lucide.createIcons();
-        });
-
-        const toggleChat = () => {
-            const sidebar = document.getElementById('aiChatSidebar');
-            sidebar.classList.toggle('translate-x-full');
-        };
-
-        document.getElementById('toggleChatBtn').addEventListener('click', toggleChat);
-        document.getElementById('closeChatBtn').addEventListener('click', toggleChat);
-
-        document.getElementById('sendChatBtn').addEventListener('click', async () => {
-            const input = document.getElementById('chatInput');
-            const container = document.getElementById('chatMessages');
-            const text = input.value.trim();
-            if (!text) return;
-
-            container.innerHTML += `<div class="bg-indigo-100 dark:bg-indigo-900/40 p-3 rounded-2xl text-sm self-end ml-auto max-w-[85%]">${text}</div>`;
-            input.value = "";
-            container.scrollTop = container.scrollHeight;
-
-            const loadingId = "ai-loading-" + Date.now();
-            container.innerHTML += `<div id="${loadingId}" class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm italic animate-pulse">✨ กำลังหาคำตอบ...</div>`;
-
-            const dataContext = filteredDataGlobal.slice(0, 80).map(d => `บิล ${d.invoice} จาก ${d.creditor} ยอด ${d.amount} (จ่ายแล้ว ${d.paid}, ปรับปรุง ${d.adjustment}, คงเหลือ ${d.balance})`).join("|");
-            const prompt = `คำถาม: "${text}" ข้อมูลตาราง: ${dataContext}`;
-
-            const aiResponse = await callGemini(prompt, "คุณคือ AI ผู้ช่วยบัญชี ตอบเป็นภาษาไทย อ้างอิงยอดจ่ายและปรับปรุงจากข้อมูลที่ให้");
-            document.getElementById(loadingId).remove();
-            container.innerHTML += `<div class="bg-gray-100 dark:bg-slate-800 p-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 max-w-[85%]">${aiResponse}</div>`;
-            container.scrollTop = container.scrollHeight;
-        });
-
         async function fetchFromCloud() {
             const btn = document.getElementById('syncCloudBtn');
             const icon = document.getElementById('syncIcon');
             btn.disabled = true; icon.classList.add('animate-spin');
             try {
+                const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFdX-ihIPt_qLmJz_6gYvOoP7Ql1d4ffu3BQgJBu9omjgRmmoX_w0_K00m_vvXHA/pub?output=csv";
                 const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
-                if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อได้");
                 const csvText = await response.text();
                 const rows = csvText.split(/\r?\n/).map(line => {
                     const res = []; let c = "", q = false;
@@ -318,11 +244,8 @@
                 updateDropdowns(processed.depts, processed.expenseTypes);
                 applyFilters();
                 showStatus("อัปเดตข้อมูลสำเร็จ!", "success");
-            } catch (err) {
-                showStatus(err.message, "error");
-            } finally {
-                btn.disabled = false; icon.classList.remove('animate-spin');
-            }
+            } catch (err) { showStatus("โหลดข้อมูลไม่สำเร็จ", "error"); }
+            finally { btn.disabled = false; icon.classList.remove('animate-spin'); }
         }
 
         function processDataArray(data) {
@@ -354,7 +277,7 @@
             document.getElementById('filterDept').innerHTML = '<option value="All">ทุกหน่วยงาน</option>' + 
                 Array.from(depts).sort().map(d => `<option value="${d}">${d}</option>`).join('');
             
-            const sortedTypes = Array.from(expenseTypes).sort();
+            const sortedTypes = Array.from(expenseTypes).sort((a, b) => a.localeCompare(b, 'th'));
             document.getElementById('expenseOptionsList').innerHTML = sortedTypes.map(type => `
                 <label class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
                     <input type="checkbox" value="${type}" checked class="expense-item-checkbox w-4 h-4 rounded text-indigo-600">
@@ -399,6 +322,7 @@
         }
 
         function updateUI(data) {
+            // Stats Update
             const t = data.reduce((s, r) => s + r.amount, 0);
             const p = data.reduce((s, r) => s + r.paid, 0);
             const b = data.reduce((s, r) => s + r.balance, 0);
@@ -406,6 +330,34 @@
             document.getElementById('statPaid').innerText = p.toLocaleString(undefined, {minimumFractionDigits: 2});
             document.getElementById('statBalance').innerText = b.toLocaleString(undefined, {minimumFractionDigits: 2});
 
+            // Expense Summary Table Calculation (Sorted by Expense Name)
+            const expSummary = {};
+            data.forEach(r => {
+                if (!expSummary[r.expenseType]) {
+                    expSummary[r.expenseType] = { count: 0, amount: 0, paid: 0, adjustment: 0, balance: 0 };
+                }
+                expSummary[r.expenseType].count++;
+                expSummary[r.expenseType].amount += r.amount;
+                expSummary[r.expenseType].paid += r.paid;
+                expSummary[r.expenseType].adjustment += r.adjustment;
+                expSummary[r.expenseType].balance += r.balance;
+            });
+
+            // Sorting by Key (Expense Type Name) alphabetically (Thai locale)
+            const summarySorted = Object.entries(expSummary).sort((a, b) => a[0].localeCompare(b[0], 'th'));
+
+            document.getElementById('expenseSummaryBody').innerHTML = summarySorted.map(([type, stats]) => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800">
+                    <td class="p-3 font-semibold">${type}</td>
+                    <td class="p-3 text-center">${stats.count}</td>
+                    <td class="p-3 text-right font-mono">${stats.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right text-emerald-600 font-mono">${stats.paid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right text-orange-500 font-mono">${stats.adjustment.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right font-bold text-red-600 font-mono">${stats.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" class="p-6 text-center text-gray-400">ไม่พบข้อมูลสรุป</td></tr>';
+
+            // Charts Update
             const isDark = document.documentElement.classList.contains('dark');
             const textColor = isDark ? '#94a3b8' : '#64748b';
 
@@ -424,7 +376,8 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10 } } } }
             });
 
-            document.getElementById('dataTableBody').innerHTML = data.length ? data.map(r => `
+            // Details Table Update
+            document.getElementById('dataTableBody').innerHTML = data.map(r => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                     <td class="p-4 text-gray-500">${r.date}</td>
                     <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
@@ -440,7 +393,9 @@
                         </span>
                     </td>
                 </tr>
-            `).join('') : '<tr><td colspan="9" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>';
+            `).join('') || '<tr><td colspan="9" class="p-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>';
+            
+            lucide.createIcons();
         }
 
         function showStatus(m, t) {
@@ -456,18 +411,18 @@
             document.getElementById(id).addEventListener('input', applyFilters);
         });
 
-        document.getElementById('expenseBox').addEventListener('click', (e) => {
-            document.getElementById('expenseDropdown').classList.toggle('show');
-            e.stopPropagation();
-        });
-        document.addEventListener('click', () => document.getElementById('expenseDropdown').classList.remove('show'));
-
         document.getElementById('darkModeToggle').addEventListener('click', () => {
             const isDark = document.documentElement.classList.toggle('dark');
             document.getElementById('sunIcon').classList.toggle('hidden', !isDark);
             document.getElementById('moonIcon').classList.toggle('hidden', isDark);
             if (rawData.length) applyFilters();
         });
+
+        document.getElementById('expenseBox').addEventListener('click', (e) => {
+            document.getElementById('expenseDropdown').classList.toggle('show');
+            e.stopPropagation();
+        });
+        document.addEventListener('click', () => document.getElementById('expenseDropdown').classList.remove('show'));
     </script>
 </body>
 </html>
