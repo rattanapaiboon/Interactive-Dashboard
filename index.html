@@ -156,9 +156,12 @@
 
         <!-- Details Table -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
-                <i data-lucide="database" class="w-5 h-5 text-indigo-500"></i>
-                <h3 class="font-bold text-gray-700 dark:text-gray-200">รายละเอียดรายการ</h3>
+            <div class="p-4 border-b bg-gray-50 dark:bg-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="database" class="w-5 h-5 text-indigo-500"></i>
+                    <h3 class="font-bold text-gray-700 dark:text-gray-200">รายละเอียดรายการ (เรียงตามวันที่รับของ)</h3>
+                </div>
+                <div class="text-xs text-gray-400">เรียงจากใหม่ไปเก่า</div>
             </div>
             <div class="p-4 overflow-x-auto">
                 <table class="w-full text-left text-sm table-bordered border-collapse">
@@ -221,6 +224,21 @@
         let filteredDataGlobal = [];
 
         lucide.createIcons();
+
+        // ฟังก์ชันช่วยแปลงวันที่จากรูปแบบ "1 ต.ค. 25" เป็น Date Object เพื่อการเปรียบเทียบ
+        function parseThaiDate(dateStr) {
+            if (!dateStr || dateStr === '-') return new Date(0);
+            const months = {
+                'ม.ค.': 0, 'ก.พ.': 1, 'มี.ค.': 2, 'เม.ย.': 3, 'พ.ค.': 4, 'มิ.ย.': 5,
+                'ก.ค.': 6, 'ส.ค.': 7, 'ก.ย.': 8, 'ต.ค.': 9, 'พ.ย.': 10, 'ธ.ค.': 11
+            };
+            const parts = dateStr.split(' ');
+            if (parts.length < 3) return new Date(0);
+            const day = parseInt(parts[0]);
+            const month = months[parts[1]] || 0;
+            const year = parseInt(parts[2]) + 2443; // แปลง พ.ศ. สองหลักเป็น ค.ศ. (โดยประมาณ)
+            return new Date(year, month, day);
+        }
 
         async function fetchFromCloud() {
             const btn = document.getElementById('syncCloudBtn');
@@ -318,6 +336,9 @@
                 return mC && mI && mE && mD && mS;
             });
 
+            // เรียงลำดับข้อมูลตามวันที่รับของ (ใหม่สุดขึ้นก่อน)
+            filteredDataGlobal.sort((a, b) => parseThaiDate(b.date) - parseThaiDate(a.date));
+
             updateUI(filteredDataGlobal);
         }
 
@@ -343,7 +364,6 @@
                 expSummary[r.expenseType].balance += r.balance;
             });
 
-            // Sorting by Key (Expense Type Name) alphabetically (Thai locale)
             const summarySorted = Object.entries(expSummary).sort((a, b) => a[0].localeCompare(b[0], 'th'));
 
             document.getElementById('expenseSummaryBody').innerHTML = summarySorted.map(([type, stats]) => `
@@ -376,10 +396,10 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10 } } } }
             });
 
-            // Details Table Update
+            // Details Table Update (Already sorted in applyFilters)
             document.getElementById('dataTableBody').innerHTML = data.map(r => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
-                    <td class="p-4 text-gray-500">${r.date}</td>
+                    <td class="p-4 text-gray-700 font-medium">${r.date}</td>
                     <td class="p-4 font-mono text-xs text-indigo-500">${r.invoice}</td>
                     <td class="p-4 font-semibold">${r.creditor}</td>
                     <td class="p-4 text-right">${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
